@@ -6,10 +6,13 @@ import { registerTools } from './tools.js';
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Store active transports by session ID
+const transports = {};
+
 // Create MCP server
 const mcpServer = new Server(
   {
-    name: 'banatit-mcp-server',
+    name: 'banatit-timisoara-mcp-server',
     version: '1.0.0'
   },
   {
@@ -25,13 +28,25 @@ registerTools(mcpServer);
 // SSE endpoint
 app.get('/sse', async (req, res) => {
   const transport = new SSEServerTransport('/messages', res);
+  transports[transport.sessionId] = transport;
+
+  res.on('close', () => {
+    delete transports[transport.sessionId];
+  });
+
   await mcpServer.connect(transport);
 });
 
 // Messages endpoint (for client → server communication)
 app.post('/messages', express.json(), async (req, res) => {
-  // The SSE transport handles this, but we keep the route for completeness
-  res.status(200).send();
+  const sessionId = req.query.sessionId;
+  const transport = transports[sessionId];
+
+  if (!transport) {
+    return res.status(400).json({ error: 'Invalid or expired session' });
+  }
+
+  await transport.handlePostMessage(req, res);
 });
 
 // Health check

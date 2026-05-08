@@ -1,6 +1,6 @@
 # BanatIT MCP Server
 
-An MCP (Model Context Protocol) server that exposes BanatIT organisations and events endpoints. Built with Node.js, Express, and the MCP SDK using SSE transport for remote access.
+An MCP (Model Context Protocol) server that exposes BanatIT organisations and events endpoints for Timișoara, Romania. Built with Node.js, Express, and the MCP SDK using SSE transport for remote access.
 
 ## Prerequisites
 

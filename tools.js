@@ -1,150 +1,270 @@
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { callApi } from './api-client.js';
 
-export function registerTools(server) {
-  // ── ORGANISATIONS ENDPOINTS ─────────────────────────────────────
+// Shared annotations — all tools are read-only queries against a closed dataset
+const READ_ONLY_ANNOTATIONS = {
+  readOnlyHint: true,
+  destructiveHint: false,
+  idempotentHint: true,
+  openWorldHint: false
+};
 
+export function registerTools(server) {
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
     tools: [
+      // ── ORGANISATIONS ENDPOINTS ─────────────────────────────────────
       {
         name: 'get_all_organisations',
-        description: 'Get all organisations',
+        title: 'List All Organisations',
+        description:
+          'Returns every organisation in the BanatIT/TechTable directory for Timișoara, Romania. ' +
+          'Each record contains: ID (kebab-case slug, e.g. "banat-it"), Nume (display name in Romanian), ' +
+          'Website, Descriere (short description), LogoID, and Rol. ' +
+          'Rol values: "Tech Company", "NGO", "Tech NGO", "Ecology NGO", "Coworking Space", "Accelerator", "Student Org", "Community". ' +
+          'Use this when you need the full catalogue of ecosystem organisations.',
         inputSchema: {
           type: 'object',
           properties: {},
           required: []
-        }
+        },
+        annotations: READ_ONLY_ANNOTATIONS
       },
       {
         name: 'get_organisation_by_id',
-        description: 'Get a single organisation by ID slug',
+        title: 'Get Organisation by ID',
+        description:
+          'Returns a single organisation by its unique ID slug. ' +
+          'IDs are kebab-case ASCII strings (e.g. "banat-it", "endava-tm", "bio-team-tm"). ' +
+          'Returns all fields: ID, Nume, Website, Descriere, LogoID, Rol. ' +
+          'Use this when you already know the exact organisation slug.',
         inputSchema: {
           type: 'object',
           properties: {
-            id: { type: 'string', description: 'Organisation ID slug' }
+            id: {
+              type: 'string',
+              description: 'Organisation ID slug in kebab-case (e.g. "banat-it", "code-for-timisoara", "impact-hub-tm")'
+            }
           },
           required: ['id']
-        }
+        },
+        annotations: READ_ONLY_ANNOTATIONS
       },
       {
         name: 'get_organisations_by_role',
-        description: 'Get all organisations with a given role (case-insensitive)',
+        title: 'Filter Organisations by Role',
+        description:
+          'Returns all organisations matching a given Rol value (case-insensitive match). ' +
+          'Valid Rol values: "Tech Company", "NGO", "Tech NGO", "Ecology NGO", ' +
+          '"Coworking Space", "Accelerator", "Student Org", "Community". ' +
+          'Use this to find all NGOs, all companies, etc.',
         inputSchema: {
           type: 'object',
           properties: {
-            role: { type: 'string', description: 'Role to filter by (e.g., NGO)' }
+            role: {
+              type: 'string',
+              description: 'Role to filter by. Valid values: "Tech Company", "NGO", "Tech NGO", "Ecology NGO", "Coworking Space", "Accelerator", "Student Org", "Community"'
+            }
           },
           required: ['role']
-        }
+        },
+        annotations: READ_ONLY_ANNOTATIONS
       },
       {
         name: 'search_organisations',
-        description: 'Search organisations by field. Contains search. Omit field to search all fields.',
+        title: 'Search Organisations',
+        description:
+          'Performs a case-insensitive substring (contains) search across organisation records. ' +
+          'Optionally restrict to a single field. Searchable fields: ID, Nume, Website, Descriere, LogoID, Rol. ' +
+          'Returns all matching organisation records. ' +
+          'Example: q="fundatia" searches all fields; q="tech", field="Rol" searches only the Rol column.',
         inputSchema: {
           type: 'object',
           properties: {
-            q: { type: 'string', description: 'Search query' },
-            field: { type: 'string', description: 'Field to search (optional, e.g., Nume)' }
+            q: {
+              type: 'string',
+              description: 'Search query — performs a case-insensitive substring match'
+            },
+            field: {
+              type: 'string',
+              description: 'Optional: restrict search to this column. Valid values: "ID", "Nume", "Website", "Descriere", "LogoID", "Rol". Omit to search all fields.'
+            }
           },
           required: ['q']
-        }
+        },
+        annotations: READ_ONLY_ANNOTATIONS
       },
-      // ── EVENTS ENDPOINTS ─────────────────────────────────────────
 
+      // ── EVENTS ENDPOINTS ─────────────────────────────────────────
       {
         name: 'get_all_events',
-        description: 'Get all events sorted by Date ascending',
+        title: 'List All Events',
+        description:
+          'Returns every event in the TechTable directory for Timișoara, sorted by Date ascending. ' +
+          'Each record contains: ID (format "evt-NNN"), Year, OrganizationID (FK to Organisations.ID), ' +
+          'LocationID, Name, Short (tagline), Description, Date (YYYY-MM-DD), Start_Time (HH:MM), ' +
+          'End_Time (HH:MM), Category, Tags (string array), Max_Participants, Event_URL, ' +
+          'Event_Cover_URL, Access_Type ("Free" or "Ticketed"), Tickets_URL, EventPhotos_URL, ' +
+          'Speakers (string array of names), SpeakersCount, Real_Participants. ' +
+          'Category values: "Conference", "Meetup", "Workshop", "Hackathon", "Fundraiser", "Networking", "Community", "Education".',
         inputSchema: {
           type: 'object',
           properties: {},
           required: []
-        }
+        },
+        annotations: READ_ONLY_ANNOTATIONS
       },
       {
         name: 'get_event_by_id',
-        description: 'Get a single event by ID',
+        title: 'Get Event by ID',
+        description:
+          'Returns a single event by its unique ID. Event IDs use the format "evt-NNN" ' +
+          '(e.g. "evt-001", "evt-012", "evt-030"). Returns the full event record with all fields.',
         inputSchema: {
           type: 'object',
           properties: {
-            id: { type: 'string', description: 'Event ID' }
+            id: {
+              type: 'string',
+              description: 'Event ID in format "evt-NNN" (e.g. "evt-001", "evt-012")'
+            }
           },
           required: ['id']
-        }
+        },
+        annotations: READ_ONLY_ANNOTATIONS
       },
       {
         name: 'get_upcoming_events',
-        description: 'Get events with Date >= today, sorted ascending',
+        title: 'List Upcoming Events',
+        description:
+          'Returns events with Date >= today (server time, Europe/Bucharest timezone), ' +
+          'sorted by Date ascending (nearest future event first). ' +
+          'Use this to find what\'s happening next in the Timișoara tech ecosystem. ' +
+          'Note: Real_Participants will be blank for future events.',
         inputSchema: {
           type: 'object',
           properties: {},
           required: []
-        }
+        },
+        annotations: READ_ONLY_ANNOTATIONS
       },
       {
         name: 'get_past_events',
-        description: 'Get events with Date < today, sorted descending',
+        title: 'List Past Events',
+        description:
+          'Returns events with Date < today (server time, Europe/Bucharest timezone), ' +
+          'sorted by Date descending (most recent past event first). ' +
+          'Past events may include Real_Participants (actual attendance) and EventPhotos_URL.',
         inputSchema: {
           type: 'object',
           properties: {},
           required: []
-        }
+        },
+        annotations: READ_ONLY_ANNOTATIONS
       },
       {
         name: 'get_events_by_org',
-        description: 'Get all events linked to an organization ID',
+        title: 'Events by Organisation',
+        description:
+          'Returns all events organised by a specific organisation, identified by its ID slug. ' +
+          'The orgId must match an Organisations.ID value (e.g. "banat-it", "code-for-timisoara"). ' +
+          'Use this to see all events — past and future — hosted by a given organisation.',
         inputSchema: {
           type: 'object',
           properties: {
-            orgId: { type: 'string', description: 'Organization ID' }
+            orgId: {
+              type: 'string',
+              description: 'Organisation ID slug (kebab-case, e.g. "banat-it", "impact-hub-tm"). Must match Organisations.ID.'
+            }
           },
           required: ['orgId']
-        }
+        },
+        annotations: READ_ONLY_ANNOTATIONS
       },
       {
         name: 'get_events_by_category',
-        description: 'Get events matching a Category value',
+        title: 'Events by Category',
+        description:
+          'Returns all events matching a given Category value. ' +
+          'Valid categories: "Conference", "Meetup", "Workshop", "Hackathon", ' +
+          '"Fundraiser", "Networking", "Community", "Education". ' +
+          'Use this to find all meetups, all hackathons, etc.',
         inputSchema: {
           type: 'object',
           properties: {
-            category: { type: 'string', description: 'Event category (e.g., Hackathon)' }
+            category: {
+              type: 'string',
+              description: 'Event category. Valid values: "Conference", "Meetup", "Workshop", "Hackathon", "Fundraiser", "Networking", "Community", "Education"'
+            }
           },
           required: ['category']
-        }
+        },
+        annotations: READ_ONLY_ANNOTATIONS
       },
       {
         name: 'get_events_by_date_range',
-        description: 'Get events within an inclusive date range. Both params optional.',
+        title: 'Events by Date Range',
+        description:
+          'Returns events within an inclusive date range. Both "from" and "to" are optional: ' +
+          'omit "from" to get all events up to the "to" date; omit "to" to get all events from "from" onwards; ' +
+          'omit both to get all events (equivalent to get_all_events). ' +
+          'Dates must be ISO 8601 format YYYY-MM-DD. Results sorted by Date ascending.',
         inputSchema: {
           type: 'object',
           properties: {
-            from: { type: 'string', description: 'Start date (YYYY-MM-DD)' },
-            to: { type: 'string', description: 'End date (YYYY-MM-DD)' }
+            from: {
+              type: 'string',
+              description: 'Start date inclusive, format YYYY-MM-DD (e.g. "2027-06-01"). Optional.'
+            },
+            to: {
+              type: 'string',
+              description: 'End date inclusive, format YYYY-MM-DD (e.g. "2027-06-30"). Optional.'
+            }
           },
           required: []
-        }
+        },
+        annotations: READ_ONLY_ANNOTATIONS
       },
       {
         name: 'get_events_by_access',
-        description: 'Get events filtered by Access_Type (Free or Ticketed)',
+        title: 'Events by Access Type',
+        description:
+          'Returns events filtered by their Access_Type field. ' +
+          'Only two valid values: "Free" (no ticket required) or "Ticketed" (requires ticket purchase). ' +
+          'Ticketed events will include a Tickets_URL field with the purchase link.',
         inputSchema: {
           type: 'object',
           properties: {
-            type: { type: 'string', description: 'Access type: Free or Ticketed' }
+            type: {
+              type: 'string',
+              description: 'Access type filter. Must be exactly "Free" or "Ticketed".'
+            }
           },
           required: ['type']
-        }
+        },
+        annotations: READ_ONLY_ANNOTATIONS
       },
       {
         name: 'search_events',
-        description: 'Search events by field. Contains search. Omit field to search all fields.',
+        title: 'Search Events',
+        description:
+          'Performs a case-insensitive substring (contains) search across event records. ' +
+          'Optionally restrict to a single field. Searchable fields include: ID, Name, Short, Description, ' +
+          'Category, Tags, Speakers, OrganizationID, Access_Type, and all other event columns. ' +
+          'Example: q="AI" searches all fields; q="Hackathon", field="Category" searches only Category.',
         inputSchema: {
           type: 'object',
           properties: {
-            q: { type: 'string', description: 'Search query' },
-            field: { type: 'string', description: 'Field to search (optional, e.g., Name)' }
+            q: {
+              type: 'string',
+              description: 'Search query — performs a case-insensitive substring match'
+            },
+            field: {
+              type: 'string',
+              description: 'Optional: restrict search to this column (e.g. "Name", "Category", "Tags", "Description", "OrganizationID"). Omit to search all fields.'
+            }
           },
           required: ['q']
-        }
+        },
+        annotations: READ_ONLY_ANNOTATIONS
       }
     ]
   }));
