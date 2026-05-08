@@ -1,0 +1,18 @@
+{
+  "type": "module",
+  "name": "banatit-mcp-server",
+  "version": "1.0.0",
+  "description": "MCP server for BanatIT organisations and events API",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "express": "^4.19.2",
+    "dotenv": "^16.4.5"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
