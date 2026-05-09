@@ -38,7 +38,7 @@ app.get('/sse', async (req, res) => {
 });
 
 // Messages endpoint (for client → server communication)
-app.post('/messages', express.json(), async (req, res) => {
+app.post('/messages', async (req, res) => {
   const sessionId = req.query.sessionId;
   const transport = transports[sessionId];
 
