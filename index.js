@@ -50,18 +50,19 @@ app.post('/mcp', async (req, res) => {
 
   const transport = new StreamableHTTPServerTransport({
     sessionIdGenerator: () => randomUUID(),
+    onsessioninitialized: (sessionId) => {
+      transports[sessionId] = transport;       // ← register here, after SDK assigns it
+    },
   });
-
-  const server = createServer();
-  await server.connect(transport);
-
-  transports[transport.sessionId] = transport;
 
   const originalOnClose = transport.onclose;
   transport.onclose = () => {
     delete transports[transport.sessionId];
     if (originalOnClose) originalOnClose();
   };
+
+  const server = createServer();
+  await server.connect(transport);
 
   await transport.handleRequest(req, res, req.body);
 });
