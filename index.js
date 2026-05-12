@@ -57,9 +57,11 @@ app.post('/mcp', async (req, res) => {
 
   transports[transport.sessionId] = transport;
 
-  transport.on('close', () => {
+  const originalOnClose = transport.onclose;
+  transport.onclose = () => {
     delete transports[transport.sessionId];
-  });
+    if (originalOnClose) originalOnClose();
+  };
 
   await transport.handleRequest(req, res);
 });
