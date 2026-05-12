@@ -265,6 +265,119 @@ export function registerTools(server) {
           required: ['q']
         },
         annotations: READ_ONLY_ANNOTATIONS
+      },
+
+      // ── MEMBERS ENDPOINTS ─────────────────────────────────────────
+      // NOTE: Members is a junction table. One person → N rows (one per organisation).
+      {
+        name: 'get_all_members',
+        title: 'List All Members',
+        description:
+          'Returns all membership rows in the BanatIT/TechTable community directory (one row per person–org pair). ' +
+          'Members is a junction table: a single person can appear in multiple rows if they belong to multiple organisations. ' +
+          'Use this when you need the full directory of community memberships.',
+        inputSchema: {
+          type: 'object',
+          properties: {},
+          required: []
+        },
+        annotations: READ_ONLY_ANNOTATIONS
+      },
+      {
+        name: 'get_member_by_id',
+        title: 'Get Member by ID',
+        description:
+          'Returns all membership rows for a person by their unique ID slug. ' +
+          'Because Members is a junction table, this always returns an ARRAY (one entry per organisation the person belongs to). ' +
+          'IDs are kebab-case ASCII strings (e.g. "ana-blaga", "john-doe"). ' +
+          'Use this when you already know the exact member slug.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            id: {
+              type: 'string',
+              description: 'Member ID slug in kebab-case (e.g. "ana-blaga", "john-doe")'
+            }
+          },
+          required: ['id']
+        },
+        annotations: READ_ONLY_ANNOTATIONS
+      },
+      {
+        name: 'get_members_by_org',
+        title: 'Members by Organisation',
+        description:
+          'Returns all members belonging to a specific organisation, identified by its ID slug. ' +
+          'The orgId must match an Organisations.ID value (e.g. "banat-it", "code-for-timisoara"). ' +
+          'Use this to see all people associated with a given organisation.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            orgId: {
+              type: 'string',
+              description: 'Organisation ID slug (kebab-case, e.g. "banat-it", "impact-hub-tm"). Must match Organisations.ID.'
+            }
+          },
+          required: ['orgId']
+        },
+        annotations: READ_ONLY_ANNOTATIONS
+      },
+      {
+        name: 'get_orgs_for_member',
+        title: 'Organisations for a Member',
+        description:
+          'Returns all membership rows for a person, with full organisation data embedded under an "Organisation" key. ' +
+          'Useful for displaying a person\'s complete profile across all orgs they belong to. ' +
+          'The id must be the member\'s kebab-case slug (e.g. "ana-blaga").',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            id: {
+              type: 'string',
+              description: 'Member ID slug in kebab-case (e.g. "ana-blaga")'
+            }
+          },
+          required: ['id']
+        },
+        annotations: READ_ONLY_ANNOTATIONS
+      },
+      {
+        name: 'get_members_with_org',
+        title: 'All Members with Organisation Details',
+        description:
+          'Returns all membership rows with the parent organisation\'s Nume and Rol embedded in each record. ' +
+          'Useful for directory listings where you want to display each member alongside their organisation name and type. ' +
+          'No parameters required.',
+        inputSchema: {
+          type: 'object',
+          properties: {},
+          required: []
+        },
+        annotations: READ_ONLY_ANNOTATIONS
+      },
+      {
+        name: 'search_members',
+        title: 'Search Members',
+        description:
+          'Performs a case-insensitive substring (contains) search across member records. ' +
+          'Optionally restrict to a single field. ' +
+          'Returns all matching membership rows. ' +
+          'Example: q="irimia" searches all fields; q="ana", field="Name" searches only the Name column.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            q: {
+              type: 'string',
+              description: 'Search query — performs a case-insensitive substring match'
+            },
+            field: {
+              type: 'string',
+              description: 'Optional: restrict search to this column (e.g. "Name", "OrganizationID"). Omit to search all fields.'
+            }
+          },
+          required: ['q']
+        },
+        annotations: READ_ONLY_ANNOTATIONS
       }
     ]
   }));
@@ -316,6 +429,25 @@ export function registerTools(server) {
           break;
         case 'search_events':
           result = await callApi({ resource: 'events', action: 'search', q: args.q, field: args.field });
+          break;
+        // ── MEMBERS ────────────────────────────────────────────────
+        case 'get_all_members':
+          result = await callApi({ resource: 'members', action: 'getAll' });
+          break;
+        case 'get_member_by_id':
+          result = await callApi({ resource: 'members', action: 'getById', id: args.id });
+          break;
+        case 'get_members_by_org':
+          result = await callApi({ resource: 'members', action: 'getByOrg', orgId: args.orgId });
+          break;
+        case 'get_orgs_for_member':
+          result = await callApi({ resource: 'members', action: 'getOrgsForMember', id: args.id });
+          break;
+        case 'get_members_with_org':
+          result = await callApi({ resource: 'members', action: 'getMembersWithOrg' });
+          break;
+        case 'search_members':
+          result = await callApi({ resource: 'members', action: 'search', q: args.q, field: args.field });
           break;
         default:
           throw new Error(`Unknown tool: ${name}`);
