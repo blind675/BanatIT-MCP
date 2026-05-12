@@ -34,7 +34,7 @@ app.post('/mcp', async (req, res) => {
   const sessionId = req.headers['mcp-session-id'];
 
   if (sessionId && transports[sessionId]) {
-    await transports[sessionId].handleRequest(req, res);
+    await transports[sessionId].handleRequest(req, res, req.body);
     return;
   }
 
@@ -63,7 +63,7 @@ app.post('/mcp', async (req, res) => {
     if (originalOnClose) originalOnClose();
   };
 
-  await transport.handleRequest(req, res);
+  await transport.handleRequest(req, res, req.body);
 });
 
 // GET opens an SSE stream for server-initiated notifications
