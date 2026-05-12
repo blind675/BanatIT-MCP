@@ -1,52 +1,96 @@
 import express from 'express';
-import { Server } from '@modelcontextprotocol/sdk/server';
-import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
+import { randomUUID } from 'node:crypto';
+import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
 import { registerTools } from './tools.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+app.use(express.json());
+
 // Store active transports by session ID
 const transports = {};
 
-// Create MCP server
-const mcpServer = new Server(
-  {
-    name: 'banatit-timisoara-mcp-server',
-    version: '1.0.0'
-  },
-  {
-    capabilities: {
-      tools: {}
+function createServer() {
+  const server = new Server(
+    {
+      name: 'banatit-timisoara-mcp-server',
+      version: '1.0.0'
+    },
+    {
+      capabilities: {
+        tools: {}
+      }
     }
+  );
+  registerTools(server);
+  return server;
+}
+
+// Streamable HTTP endpoint — POST handles all client→server messages
+app.post('/mcp', async (req, res) => {
+  const sessionId = req.headers['mcp-session-id'];
+
+  if (sessionId && transports[sessionId]) {
+    await transports[sessionId].handleRequest(req, res);
+    return;
   }
-);
 
-// Register tools
-registerTools(mcpServer);
+  // New session — must be an initialize request
+  if (!isInitializeRequest(req.body)) {
+    res.status(400).json({
+      jsonrpc: '2.0',
+      error: { code: -32600, message: 'Bad Request: No valid session ID and not an initialize request' },
+      id: null
+    });
+    return;
+  }
 
-// SSE endpoint
-app.get('/sse', async (req, res) => {
-  const transport = new SSEServerTransport('/messages', res);
+  const transport = new StreamableHTTPServerTransport({
+    sessionIdGenerator: () => randomUUID(),
+  });
+
+  const server = createServer();
+  await server.connect(transport);
+
   transports[transport.sessionId] = transport;
 
-  res.on('close', () => {
+  transport.on('close', () => {
     delete transports[transport.sessionId];
   });
 
-  await mcpServer.connect(transport);
+  await transport.handleRequest(req, res);
 });
 
-// Messages endpoint (for client → server communication)
-app.post('/messages', async (req, res) => {
-  const sessionId = req.query.sessionId;
-  const transport = transports[sessionId];
-
-  if (!transport) {
-    return res.status(400).json({ error: 'Invalid or expired session' });
+// GET opens an SSE stream for server-initiated notifications
+app.get('/mcp', async (req, res) => {
+  const sessionId = req.headers['mcp-session-id'];
+  if (sessionId && transports[sessionId]) {
+    await transports[sessionId].handleRequest(req, res);
+    return;
   }
+  res.status(400).json({
+    jsonrpc: '2.0',
+    error: { code: -32600, message: 'Bad Request: No valid session ID' },
+    id: null
+  });
+});
 
-  await transport.handlePostMessage(req, res);
+// DELETE terminates a session
+app.delete('/mcp', async (req, res) => {
+  const sessionId = req.headers['mcp-session-id'];
+  if (sessionId && transports[sessionId]) {
+    await transports[sessionId].handleRequest(req, res);
+    delete transports[sessionId];
+    return;
+  }
+  res.status(400).json({
+    jsonrpc: '2.0',
+    error: { code: -32600, message: 'Bad Request: No valid session ID' },
+    id: null
+  });
 });
 
 // Health check
@@ -56,5 +100,5 @@ app.get('/health', (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`BanatIT MCP Server running on port ${PORT}`);
-  console.log(`SSE endpoint: http://localhost:${PORT}/sse`);
+  console.log(`Streamable HTTP endpoint: http://localhost:${PORT}/mcp`);
 });
